@@ -1,7 +1,7 @@
 ## CODE FOR COMBINING ASIAN INDEXES
 
 ###Code begins
-data_fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/data/"
+data_fpath<-"Path of excel file containing Asian indices"
 
 list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
 reference_week<-read.csv( paste(fpath,"date.csv",sep = ""))
