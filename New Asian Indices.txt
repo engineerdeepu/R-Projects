@@ -2,7 +2,7 @@
 
 ##### Observation creation #####
 
-fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/New Asian Indices/"
+fpath<-"Path of excel file containing Indices"
 list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
 
 data= read.csv(paste(fpath,"asian_indexes_returns.csv",sep = ""))
