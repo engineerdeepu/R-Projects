@@ -1,0 +1,795 @@
+## CODE FOR COMBINING ASIAN INDEXES
+
+###Code begins
+data_fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/data/"
+
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+reference_week<-read.csv( paste(fpath,"date.csv",sep = ""))
+
+number_of_weeks<-nrow(reference_week)
+number_of_indexes<-nrow(list_of_index)
+combined_data<-matrix(0,number_of_weeks,number_of_indexes+1)
+reference_week1 <-as.matrix(reference_week$Week)
+combined_data[,1] <- as.character(reference_week1)
+
+for(i in 1:number_of_indexes)
+{
+  index<-read.csv(paste(data_fpath,list_of_index$Index_name[i],".csv",sep ="" ))
+  index_week<- as.matrix(index$Week)
+  j<-1
+  while(j<=number_of_weeks)
+  {
+    k<-1
+    while(k<=nrow(index))
+    {
+      if(reference_week1[j]==index_week[k])
+      {
+        combined_data[j,i+1]<- index$Close[k]
+        k<-k+1
+        break
+      }
+      else
+      {
+        combined_data[j,i+1]<-NA
+        k<-k+1
+      }
+    }
+    j<-j+1
+  }
+  
+}
+combined_data1<-as.data.frame(combined_data)
+colnames(combined_data1)<-c("Week",as.character(list_of_index$Index_name))
+
+write.csv(combined_data1,file = paste(fpath,"combined_asian_indexes.csv",sep = ""))
+####################################################################
+fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/"
+combined_data<-read.csv(paste(fpath,"combined_asian_indexes.csv",sep = ""))
+
+number_of_rows <- nrow(combined_data)
+number_of_columns <- ncol(combined_data)
+
+for(i in 1:number_of_rows)
+{
+  for(j in 2:number_of_columns)
+  {
+    if(is.na(combined_data[i,j])== TRUE)
+    {
+      flag <- 1
+      while(is.na(combined_data[i+flag,j])== TRUE & i+flag < number_of_rows)
+      {
+        flag <- flag+1
+      }
+      combined_data[i,j] = combined_data[i+flag,j]
+    }
+    else
+    {
+      combined_data[i,j] = combined_data[i,j]
+    }
+  }
+} 
+
+write.csv(combined_data,file=paste(fpath,"Cleaned_asian_indices.csv",sep = ""))
+
+##### Observation creation #####
+
+fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/"
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+
+data= read.csv(paste(fpath,"asian_indexes_returns.csv",sep = ""))
+reference_date<- read.csv( paste(fpath,"date.csv",sep = ""))
+
+entire_returns<- data[,c(-1)]
+number_of_rows <- nrow(entire_returns)
+number_of_columns <- ncol(entire_returns)
+
+obs<- matrix(0,500,number_of_columns)  ### sample size is 500 days
+x<-1
+for(i in 1:176)
+{ 
+  obs<- entire_returns[x:(x+499),]   
+  obs1<-as.data.frame(obs)
+  colnames(obs1)<-c(as.character(list_of_index$Index_name))
+  write.csv(obs1,file = paste(fpath,"observations/","obs_",i,".csv",sep = ""))
+  x<-x+20  ### sliding window of 20 data points(20 days)
+}
+
+##### Correlations ####
+
+for(i in 1:176)
+{
+  obs=read.csv(paste(fpath,"observations/","obs_",i,".csv",sep = ""))
+  cc=cor(obs[,-1],method = "pearson")
+  write.csv(cc,file = paste(fpath,"Correlations/","cor_",i,".csv",sep = ""))
+}
+
+
+### Residual Returns ####
+
+for(i in 1:176)
+{
+  obs<-read.csv(paste(fpath,"observations/","obs_",i,".csv",sep = ""))
+  obs<-obs[,-1]
+  number_of_rows <- nrow(obs)
+  number_of_columns <- ncol(obs)
+  
+  resreturns<- matrix(0,number_of_rows,number_of_columns)
+  
+  for(j in 1:number_of_columns)
+  {
+    for(k in 1:number_of_rows)
+    { 
+      avg_return<- (sum(obs[k,])/number_of_rows)
+      resreturns[k,j]<- obs[k,j]- avg_return
+    }
+  }
+  resreturns1<-as.data.frame(resreturns)
+  colnames(resreturns1)<-c(as.character(list_of_index$Index_name))
+  
+  write.csv(resreturns1,file = paste(fpath,"Residual Returns/","res_",i,".csv",sep = ""))
+}
+
+########### Weighted networks ############
+for(i in 1:176)
+{
+  obs=read.csv(paste(fpath,"Residual Returns/","res_",i,".csv",sep = ""))
+  cc=cor(obs[,-1],method = "pearson")
+  write.csv(cc,file = paste(fpath,"Weighted/","wt_",i,".csv",sep = ""))
+}
+
+###############(Plotting Weighted network)###############################
+
+library(igraph)
+g=matrix(0,14,14)
+
+for(n in 1:176)
+{
+  wt=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  wt=wt[,c(-1)]
+  w=cor(wt,method = "pearson")# weighted correlation coeff
+  adj17=graph.adjacency(w,weighted = TRUE,mode = "undirected",diag = FALSE)
+  V(adj17)$size=2
+  #V(adj17)$color=rainbow(15)
+  png(filename = paste(fpath,"Weighted Network/wn_",n,".png",sep = ""),width = 1500,height = 700)
+  plot.igraph(adj17)
+  dev.off()
+} 
+
+############ Influence Strength ##############
+
+for(i in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",i,".csv",sep = ""))
+  infl=matrix(0,14,2)
+  for(n in 1:14)
+  {
+    # infl=0
+    m1<-as.matrix(weight_df[,-1])
+    diag(m1)=0
+    a<-colnames(weight_df[2:15])
+    infl[,1]=a
+    for(k in 1:14)
+    {
+      infl[k,2]=sum(abs(m1[k,]))
+    }
+  }
+  colnames(infl)<-c("Indices","Influence_Strength")
+  write.csv(infl,file = paste(fpath,"Influential Strength/Is_",i,".csv",sep = ""))
+}
+
+############### Influence Strength of 1000 observations in 1 excel sheet ################
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  Is_obs=matrix(0,14,177)
+  Is_obs[,1]<-b
+  for(m in 1:176)
+  {
+    Is_data=read.csv(paste(fpath,"Influential Strength/Is_",m,".csv",sep = ""))
+    Is_obs[,m+1]<-cbind(Is_data[,3])
+    Is_data=matrix(0,14,3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(Is_obs)<-c(header)
+  write.csv(Is_obs,file = paste(fpath,"Influential Strength/Is_176_observations.csv",sep = ""))
+}
+
+############# Disparity #################
+
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  infl=read.csv(paste(fpath,"Influential Strength/Is_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  dispar=matrix(0,14,2)
+  dispar[,1]<-b
+  r<-matrix(0,14,2)
+  for(i in 1:14)
+  {
+    sum_result<-0
+    for(j in 1:14)
+    {
+      weight_df[i,j]
+      a=((weight_df[i,j]/infl[i,3]))^2
+      r[i,2]=as.numeric(a)
+      sum_result=sum_result+r[i,2]
+    }
+    dispar[i,2]=sum_result
+  }
+  colnames(dispar)<-c("Indices","Disparity")
+  write.csv(dispar,file = paste(fpath,"Disparity/disp_",n,".csv",sep = ""))
+}
+
+############### Disparity of 1000 observations in 1 excel sheet ################
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  dispar_obs=matrix(0,14,177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(fpath,"Disparity/disp_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,14,3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(fpath,"Disparity/disparity_176_observations.csv",sep = ""))
+}
+
+######### Ranked Influential Strength ############
+
+for(i in 1:176)
+{
+  Inf_Str_data=read.csv(paste(fpath,"Influential Strength/Is_",i,".csv",sep = ""))
+  Inf_str=Inf_Str_data$Influence_Strength
+  Sort_Inf_str<-sort(Inf_str, decreasing = TRUE)
+  rank_mat=matrix(0,14,3)
+  for(j in 1:14)
+  {
+    for(k in 1:14)
+    {
+      if(Sort_Inf_str[j]==Inf_str[k])
+      {
+        rank_mat[j,1]<-j
+        rank_mat[j,2]<- as.character(Inf_Str_data$Indices[k])
+        rank_mat[j,3]<-Inf_str[k]
+        break()               
+      }
+    }
+  }
+  finally_ranked_list<- as.data.frame(rank_mat)
+  colnames(finally_ranked_list)<-c("Rank","Indices","Influential Strength")
+  write.csv(finally_ranked_list,file = paste(fpath,"Ranked_Influential_Strength/","rn_Is_",i,".csv",sep = ""))
+}
+
+###########################################
+#influence Strength (j) Code
+###########################################
+
+for(i in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",i,".csv",sep = ""))
+  infl_2=matrix(0,14,2)
+  for(n in 1:14)
+  {
+    m1<-as.matrix(weight_df[,-1])
+    diag(m1)=0
+    a<-colnames(weight_df[2:15])
+    infl_2[,1]=a
+    for(k in 1:14)
+    {
+      infl_2[k,2]=sum(abs(m1[,k]))
+    }
+  }
+  colnames(infl_2)<-c("Indices","Influence_Strength")
+  write.csv(infl_2,file = paste(fpath,"Influence_Strength_second_node/Is_",i,".csv",sep = ""))
+}
+###################################################################################################
+
+############### Influence Strength of 1000 observations in 1 excel sheet ################
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  Is_obs=matrix(0,14,177)
+  Is_obs[,1]<-b
+  for(m in 1:176)
+  {
+    Is_data=read.csv(paste(fpath,"Influence_Strength_second_node/Is_",m,".csv",sep = ""))
+    Is_obs[,m+1]<-cbind(Is_data[,3])
+    Is_data=matrix(0,14,3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(Is_obs)<-c(header)
+  write.csv(Is_obs,file = paste(fpath,"Influence_Strength_second_node/Is_176_observations.csv",sep = ""))
+}
+### Dominance ###
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  infl_2=read.csv(paste(fpath,"Influence_Strength_second_node/Is_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  dom=matrix(0,14,2)
+  dom[,1]<-b
+  r<-matrix(0,14,2)
+  for(i in 1:14)
+  {
+    sum_result<-0
+    for(j in 1:14)
+    {
+      weight_df[i,j]
+      a=(weight_df[i,j]/infl_2[i,3])
+      r[i,2]=as.numeric(a)
+      sum_result=sum_result+r[i,2]
+    }
+    dom[i,2]=sum_result
+  }
+  colnames(dom)<-c("Indices","Dominance")
+  write.csv(dom,file = paste(fpath,"Dominance/dom_",n,".csv",sep = ""))
+}
+############### Dominance of 1000 observations in 1 excel sheet ################
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  infl_2=read.csv(paste(fpath,"Influence_Strength_second_node/Is_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:14])
+  dispar_obs=matrix(0,14,177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(fpath,"Dominance/dom_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,14,3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(fpath,"Dominance/dominance_176_observations.csv",sep = ""))
+}
+
+######### Hierarchial clustering ########
+
+library(igraph)
+library(disparityfilter)
+for(k in 1:176)
+{
+  cc<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  dis<-cc[,-1]
+  hc <- hclust( as.dist(dis), method = "complete", members = NULL)
+  png(filename = paste(fpath,"Hierarchial Clustering/","hc_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(hc) 
+  dev.off()
+}
+
+########## MST #############
+
+for(k in 1:176)
+{
+  cc<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  cc1<-cc[,-1]
+  r<- nrow(cc1)
+  c<- ncol(cc1)
+  dist_ij<-matrix(0,r,c)
+  for(j in 1:14)
+  {
+    for(i in 1:14)
+    {
+      dist_ij[i,j]<- sqrt(2*(1-cc1[i,j]))
+    }
+  }
+  obs<-cbind(as.character(cc[,1]),dist_ij)
+  obs1<-as.data.frame(dist_ij)
+  rownames(obs1)<-c(as.character(list_of_index$Index_name))
+  colnames(obs1)<-c(as.character(list_of_index$Index_name))
+  write.csv(obs1,file = paste(fpath,"Distance/","dis_",k,".csv",sep = ""))
+}
+
+### MST ###
+library(igraph)
+library(disparityfilter)
+
+for(k in 1:176)
+{
+  dis<-read.csv(paste(fpath,"Distance/","dis_",k,".csv",sep = ""))
+  dis<-dis[,-1]
+  G <- graph.adjacency(as.matrix(dis), weighted=TRUE,mode = c("undirected")) 
+  V(G)$label <- V(G)$name 
+  V(G)$color <- "white" 
+  V(G)$size <-1
+  E(G)$size<-0.5
+  mst <- minimum.spanning.tree(G)
+  png(filename = paste(fpath,"MST/","mst_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(mst) 
+  dev.off()
+}
+
+
+MST_length2=matrix(0,14,1)
+Inverse_MST_length2=matrix(0,14,1)
+Average_MST_length2=matrix(0,14,1)
+normalized_MST_length2=matrix(0,14,1)
+
+require(igraph)
+require(stats)
+
+
+for (i in 1:176){
+  
+  
+  distance_matrix21=read.csv(paste(fpath,"Distance/dis_",i,".csv",sep=""))
+  distance_matrix23=distance_matrix21[,-1]
+  distance_matrix24=as.matrix(distance_matrix23)
+  graph25 <- graph.adjacency(distance_matrix24, weighted=TRUE, mode="upper")
+  
+  graph65<-minimum.spanning.tree(graph25)
+  # Computing MST Length
+  MST_new=sum(E(graph65)$weight)
+  MST_length2[i]=MST_new
+  
+  # Computing Inverse MST Length \
+  Inverse_MST_length2[i]=1/MST_new
+  
+  Average_MST_length2[i]=mean(MST_new)
+  normalized_MST_length2[i]=mean(MST_new)/13
+}
+
+write.csv(MST_length2,file = paste(fpath,"MST_Length/MST_Length1.csv",sep = ""))
+write.csv(Inverse_MST_length2,file = paste(fpath,"MST_Length/Inverse_MST_length1.csv",sep = ""))
+write.csv(Average_MST_length2,file = paste(fpath,"MST_Length/Average_MST_length1.csv",sep = ""))
+write.csv(normalized_MST_length2,file = paste(fpath,"MST_Length/normalized_MST_length1.csv",sep = ""))
+
+
+#### Eigen Vector Centrality #####
+
+library(igraph)
+
+for(n in 1:176)
+{
+  obs=read.csv(paste(fpath,"observations/","obs_",n,".csv",sep = "")) 
+}
+g=matrix(0,14,14)
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+eigen=matrix(0,14,2)
+eigen[,1]<-as.character(list_of_index$Index_name)
+colnames(eigen)=c("Indices","Eigen Vector Centrality")
+dm=matrix(0,14,14)
+for(n in 1:176)
+{
+  obs=read.csv(paste(fpath,"observations/","obs_",n,".csv",sep = ""))
+  obs=obs[,-1]
+  for(i in 1:14)
+  {
+    for(j in 1:14)
+    {
+      g[i,j]=obs[i,j]-mean(obs[,j])# residual log return
+    }
+  }
+  w=cor(g,method = "pearson")
+  data=as.matrix(w)
+  for(j in 1:14)
+  {
+    for(k in 1:14)
+    {
+      dm[j,k]=sqrt(2*(1-(as.numeric(w[j,k]))))
+    }
+  }
+  adj17 =graph.adjacency(dm,weighted = TRUE,mode = "upper")
+  eig=evcent(adj17)$vector
+  eigen[,2]=as.matrix(eig)
+  write.csv(eigen,file = paste(fpath,"Centrality/Eigen Vector Centrality/ev_centrality_",n,".csv",sep = ""))
+}
+
+######### Centrality Measures ############
+
+library(tnet)
+library(igraph)
+g=matrix(0,14,14)
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+
+for(n in 1:176)
+{
+  
+  cor_coef=read.csv(paste(fpath,"Correlations/","cor_",n,".csv",sep = ""))
+  cor_coef=as.matrix(cor_coef[,-1])
+  data=as.matrix(cor_coef)
+  dm=matrix(0,14*14,3)
+  k=1
+  for(i in 1:14)
+  {
+    for(j in 1:14)
+    {
+      if(data[i,j]<0)
+      {
+        temp=abs(data[i,j])
+        dm[k,]=c(i,j,temp)
+        k=k+1
+      }else{
+        dm[k,]=c(i,j,data[i,j])
+        k=k+1
+      }
+    }
+  }
+  close_c=closeness_w(dm)
+  betw_c=betweenness_w(dm)
+  deg_c=degree_w(dm)
+#  cluster_c=clustering_w(dm)
+  close_c<-close_c[,-3]
+  
+  write.csv(close_c,file = paste(fpath,"Centrality/Closeness Centrality/cc_",n,".csv",sep = ""))
+  write.csv(betw_c,file = paste(fpath,"Centrality/Betweeness Centrality/bc_",n,".csv",sep = ""))
+  write.csv(deg_c,file = paste(fpath,"Centrality/Degree Centrality/dc_",n,".csv",sep = ""))
+#  write.csv( cluster_c,file = paste(fpath,"Result/Clustering Coefficient/clus_",n,".csv",sep = ""))
+}
+
+result_path<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/"
+fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/"
+####### Betweeness Centrality for 176 observations in 1 excel sheet ############
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(result_path,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:nrow(list_of_index)])
+  dispar_obs=matrix(0,nrow(list_of_index),177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(result_path,"Centrality/Betweeness Centrality/bc_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,nrow(list_of_index),3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+  {
+    vector_obs[i] <- paste("Obs_",i)
+  }
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(result_path,"Centrality/Betweeness Centrality/BC_176_observations.csv",sep = ""))
+}
+
+
+####### Closeness Centrality for 176 observations in 1 excel sheet ############
+
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(result_path,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:nrow(list_of_index)])
+  dispar_obs=matrix(0,nrow(list_of_index),177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(result_path,"Centrality/Closeness Centrality/cc_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,nrow(list_of_index),3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(result_path,"Centrality/Closeness Centrality/CC_176_observations.csv",sep = ""))
+####### Eigen Vector Centrality for 176 observations in 1 excel sheet ############
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(result_path,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:nrow(list_of_index)])
+  dispar_obs=matrix(0,nrow(list_of_index),177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(result_path,"Centrality/Eigen Vector Centrality/ev_centrality_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,nrow(list_of_index),3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(result_path,"Centrality/Eigen Vector Centrality/EV_176_observations.csv",sep = ""))
+}
+
+
+####### Ranked Influential Strength in 1 excel sheet ############
+
+number_=176
+rank_data=read.csv(paste(fpath,"Ranked_Influential_Strength/rn_Is_1.csv",sep=""))
+rank_num_seq=rank_data$Rank
+rank_inf_matrix=matrix(0,nrow(rank_data),number_+1)
+b<-colnames(weight_df[1:nrow(list_of_index)])
+rank_inf_matrix[,1]<-rank_num_seq
+for(m in 1:number_)
+{
+  disp=read.csv(paste(result_path,"Ranked_Influential_Strength/rn_Is_",m,".csv",sep = ""))
+  rank_inf_matrix[,m+1]<-cbind(as.character(disp[,3]))
+  disp=matrix(0,nrow(list_of_index),3)
+}
+vector_obs=c()
+for (i in 1:number_)
+{
+  vector_obs[i] <- paste("Obs_",i)
+}
+header<-c("Rank",vector_obs)
+colnames(rank_inf_matrix)<-c(header)
+write.csv(rank_inf_matrix,paste(fpath,"Ranked_Influential_Strength/rn_Is_for_",number_,"_observations.csv",sep=""))
+
+####### Weights of BSE in 1 excel sheet ############
+
+number_=176
+
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+wt_bse_matrix=matrix(0,nrow(wt_bse_data)-1,number_+1)
+for(i in 1:number_)
+{
+  wt_bse_data=read.csv(paste(fpath,"Weighted/wt_",i,".csv",sep=""))
+  wt_bse=wt_bse_data[1,]
+  wt_bse<-wt_bse[,c(-1,-2)]
+  wt_bse_matrix[,i+1]=t(wt_bse)
+}
+list_of_other_indices<-list_of_index[-1,]
+wt_bse_matrix[,1]<-as.character(list_of_other_indices$Index_name)
+vector_obs=c()
+for (i in 1:number_)
+{
+  vector_obs[i] <- paste("Obs_",i)
+}
+header<-c("Indices",vector_obs)
+colnames(wt_bse_matrix)<-c(header)
+write.csv(wt_bse_matrix,paste(fpath,"Weighted/Wt_BSE_over_others.csv",sep=""))
+}
+
+####### Degree Centrality for 176 observations in 1 excel sheet ############
+
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(result_path,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:nrow(list_of_index)])
+  dispar_obs=matrix(0,nrow(list_of_index),177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(result_path,"Centrality/Degree Centrality/dc_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,4])
+    disp=matrix(0,nrow(list_of_index),3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(result_path,"Centrality/Degree Centrality/DC_176_observations.csv",sep = ""))
+}
+
+####### Eigen Vector Centrality for 176 observations in 1 excel sheet ############
+
+for(n in 1:176)
+{
+  weight_df=read.csv(paste(result_path,"Weighted/","wt_",n,".csv",sep = ""))
+  weight_df=weight_df[,-1]
+  b<-colnames(weight_df[1:nrow(list_of_index)])
+  dispar_obs=matrix(0,nrow(list_of_index),177)
+  dispar_obs[,1]<-b
+  #dispar_obs<-cbind(dispar_obs,disp[,3])
+  for(m in 1:176)
+  {
+    disp=read.csv(paste(result_path,"Centrality/Eigen Vector Centrality/ev_centrality_",m,".csv",sep = ""))
+    dispar_obs[,m+1]<-cbind(disp[,3])
+    disp=matrix(0,nrow(list_of_index),3)
+  }
+  vector_obs=c()
+  for (i in 1:176)
+    vector_obs[i] <- paste("Obs_",i)
+  header<-c("Indices",vector_obs)
+  colnames(dispar_obs)<-c(header)
+  write.csv(dispar_obs,file = paste(result_path,"Centrality/Eigen Vector Centrality/EV_176_observations.csv",sep = ""))
+}
+
+fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/ASIAN INDICES/"
+
+####### Ranked Influential Strength in 1 excel sheet ############
+
+number_=176
+rank_data=read.csv(paste(fpath,"Ranked_Influential_Strength/rn_Is_1.csv",sep=""))
+rank_num_seq=rank_data$Rank
+rank_inf_matrix=matrix(0,nrow(rank_data),number_+1)
+b<-colnames(weight_df[1:nrow(list_of_index)])
+rank_inf_matrix[,1]<-rank_num_seq
+for(m in 1:number_)
+{
+  disp=read.csv(paste(result_path,"Ranked_Influential_Strength/rn_Is_",m,".csv",sep = ""))
+  rank_inf_matrix[,m+1]<-cbind(as.character(disp[,3]))
+  disp=matrix(0,nrow(list_of_index),3)
+}
+vector_obs=c()
+for (i in 1:number_)
+{
+  vector_obs[i] <- paste("Obs_",i)
+}
+header<-c("Rank",vector_obs)
+colnames(rank_inf_matrix)<-c(header)
+write.csv(rank_inf_matrix,paste(fpath,"Ranked_Influential_Strength/rn_Is_for_",number_,"_observations.csv",sep=""))
+
+####### Weights of BSE in 1 excel sheet ############
+
+number_=176
+
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+wt_bse_matrix=matrix(0,nrow(wt_bse_data)-1,number_+1)
+for(i in 1:number_)
+{
+  wt_bse_data=read.csv(paste(fpath,"Weighted/wt_",i,".csv",sep=""))
+  wt_bse=wt_bse_data[1,]
+  wt_bse<-wt_bse[,c(-1,-2)]
+  wt_bse_matrix[,i+1]=t(wt_bse)
+}
+list_of_other_indices<-list_of_index[-1,]
+wt_bse_matrix[,1]<-as.character(list_of_other_indices$Index_name)
+vector_obs=c()
+for (i in 1:number_)
+{
+  vector_obs[i] <- paste("Obs_",i)
+}
+header<-c("Indices",vector_obs)
+colnames(wt_bse_matrix)<-c(header)
+write.csv(wt_bse_matrix,paste(fpath,"Weighted/Wt_BSE_over_others.csv",sep=""))
+
+#### Code for Threshold Filtering at 0.4 ####
+
+library(igraph)
+library(disparityfilter)
+
+number_=176
+for(k in 1:number_)
+{
+  obs<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  obs<-obs[,-1]
+  obs[obs<0.4 | obs==1]<- 0
+  
+  G <- graph.adjacency(as.matrix(obs), weighted=TRUE,mode = c("undirected")) 
+  V(G)$label <- V(G)$name 
+  V(G)$color <- "white" 
+  V(G)$size <- 1
+  E(G)$size<-1
+  png(filename = paste(fpath,"Threshold_0.4/","th4_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(G) 
+  dev.off()
+}
+

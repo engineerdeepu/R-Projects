@@ -1,0 +1,166 @@
+#rm(list=ls())
+
+#fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/CRISIS ANALYSIS/EMPIRICAL/INTERNATIONAL INDICES/Pre-Crisis/"
+fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/CRISIS ANALYSIS/RANDOMIZED/INTERNATIONAL INDICES/Pre-Crisis/"
+list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
+
+num_of_obs<-1
+indices<-43
+##### Correlations ####
+
+for(i in 1:num_of_obs)
+{
+  obs=read.csv(paste(fpath,"observations/","obs_",i,".csv",sep = ""))
+  cc=cor(obs[,-1],method = "pearson")
+  write.csv(cc,file = paste(fpath,"Correlations/","cor_",i,".csv",sep = ""))
+}
+
+
+### Residual Returns ####
+
+for(i in 1:num_of_obs)
+{
+  obs<-read.csv(paste(fpath,"observations/","obs_",i,".csv",sep = ""))
+  obs<-obs[,-1]
+  number_of_rows <- nrow(obs)
+  number_of_columns <- ncol(obs)
+  
+  resreturns<- matrix(0,number_of_rows,number_of_columns)
+  
+  for(j in 1:number_of_columns)
+  {
+    for(k in 1:number_of_rows)
+    { 
+      avg_return<- (sum(obs[k,])/number_of_rows)
+      resreturns[k,j]<- obs[k,j]- avg_return
+    }
+  }
+  resreturns1<-as.data.frame(resreturns)
+  colnames(resreturns1)<-c(as.character(list_of_index$Index_name))
+  
+  write.csv(resreturns1,file = paste(fpath,"Residual Returns/","res_",i,".csv",sep = ""))
+}
+
+########### Weighted networks ############
+for(i in 1:num_of_obs)
+{
+  obs=read.csv(paste(fpath,"Residual Returns/","res_",i,".csv",sep = ""))
+  cc=cor(obs[,-1],method = "pearson")
+  write.csv(cc,file = paste(fpath,"Weighted/","wt_",i,".csv",sep = ""))
+}
+###############(Plotting Weighted network)###############################
+
+library(igraph)
+g=matrix(0,indices,indices)
+
+for(n in 1:num_of_obs)
+{
+  wt=read.csv(paste(fpath,"Weighted/","wt_",n,".csv",sep = ""))
+  wt=wt[,c(-1)]
+  w=cor(wt,method = "pearson")# weighted correlation coeff
+  adj17=graph.adjacency(w,weighted = TRUE,mode = "undirected",diag = FALSE)
+  V(adj17)$size=2
+  #V(adj17)$color=rainbow(15)
+  png(filename = paste(fpath,"Weighted Network/wn_",n,".png",sep = ""),width = 1500,height = 700)
+  plot.igraph(adj17)
+  dev.off()
+} 
+
+############ Influence Strength ##############
+
+for(i in 1:num_of_obs)
+{
+  weight_df=read.csv(paste(fpath,"Weighted/","wt_",i,".csv",sep = ""))
+  infl=matrix(0,indices,2)
+  for(n in 1:indices)
+  {
+    # infl=0
+    m1<-as.matrix(weight_df[,-1])
+    diag(m1)=0
+    a<-colnames(weight_df[2:(indices+1)])
+    infl[,1]=a
+    for(k in 1:indices)
+    {
+      infl[k,2]=sum(abs(m1[k,]))
+    }
+  }
+  colnames(infl)<-c("Indices","Influence_Strength")
+  write.csv(infl,file = paste(fpath,"Influential Strength/Is_",i,".csv",sep = ""))
+}
+
+######### Hierarchial clustering ########
+
+library(igraph)
+library(disparityfilter)
+for(k in 1:num_of_obs)
+{
+  cc<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  dis<-cc[,-1]
+  hc <- hclust( as.dist(dis), method = "complete", members = NULL)
+  png(filename = paste(fpath,"Hierarchial Clustering/","hc_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(hc) 
+  dev.off()
+}
+
+########## MST #############
+
+for(k in 1:num_of_obs)
+{
+  cc<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  cc1<-cc[,-1]
+  r<- nrow(cc1)
+  c<- ncol(cc1)
+  dist_ij<-matrix(0,r,c)
+  for(j in 1:indices)
+  {
+    for(i in 1:indices)
+    {
+      dist_ij[i,j]<- sqrt(2*(1-cc1[i,j]))
+    }
+  }
+  obs<-cbind(as.character(cc[,1]),dist_ij)
+  obs1<-as.data.frame(dist_ij)
+  rownames(obs1)<-c(as.character(list_of_index$Index_name))
+  colnames(obs1)<-c(as.character(list_of_index$Index_name))
+  write.csv(obs1,file = paste(fpath,"Distance/","dis_",k,".csv",sep = ""))
+}
+
+### MST ###
+library(igraph)
+library(disparityfilter)
+
+for(k in 1:num_of_obs)
+{
+  dis<-read.csv(paste(fpath,"Distance/","dis_",k,".csv",sep = ""))
+  dis<-dis[,-1]
+  G <- graph.adjacency(as.matrix(dis), weighted=TRUE,mode = c("undirected")) 
+  V(G)$label <- V(G)$name 
+  V(G)$color <- "white" 
+  V(G)$size <-1
+  E(G)$size<-0.5
+  mst <- minimum.spanning.tree(G)
+  png(filename = paste(fpath,"MST/","mst_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(mst) 
+  dev.off()
+}
+#### Code for Threshold Filtering at 0.4 ####
+
+library(igraph)
+library(disparityfilter)
+
+number_=num_of_obs
+for(k in 1:number_)
+{
+  obs<-read.csv(paste(fpath,"Correlations/","cor_",k,".csv",sep = ""))
+  obs<-obs[,-1]
+  obs[obs<0.4 | obs==1]<- 0
+  
+  G <- graph.adjacency(as.matrix(obs), weighted=TRUE,mode = c("undirected")) 
+  V(G)$label <- V(G)$name 
+  V(G)$color <- "white" 
+  V(G)$size <- 1
+  E(G)$size<-1
+  png(filename = paste(fpath,"Threshold_0.4/","th4_",k,".png",sep = ""),width = 1500,height = 1500)
+  plot(G) 
+  dev.off()
+}

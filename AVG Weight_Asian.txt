@@ -1,0 +1,24 @@
+fpath_1<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/EXTERNAL VALIDATION/ASIAN INDICES/"
+fpath_2<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/AVERAGE WEIGHT/ASIAN INDICES/"
+list_of_index<- read.csv( paste(fpath_1,"list.csv",sep = ""))
+
+number_of_obs=1
+
+mean_vector=c()
+vector_obs=c()
+
+i=1 
+vector_obs[i] <- paste("Obs_",i) 
+mean_matrix=matrix(0,number_of_obs,2)
+wt=read.csv(paste(fpath_1,"Weighted/","wt_",i,".csv",sep = ""))
+wt=wt[,-1]
+mean_vector=append(mean_vector,mean(upperTriangle(wt, diag = FALSE)))
+
+mean_matrix[,1]=vector_obs
+mean_matrix[,2]=mean_vector
+
+header<-c("Observations","Means")
+colnames(mean_matrix)<-c(header)
+write.csv(mean_matrix,paste(fpath_2,"obs_mean_external.csv",sep=""))
+
+
