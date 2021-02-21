@@ -3,8 +3,8 @@
 library(gdata)
 ##### For generating Average weights for Inner validation of International Indices ########
 
-fpath_1<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/INNER VALIDATION(SYSTEM STUDY)/INTERNATIONAL INDICES/"
-fpath_2<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/AVERAGE WEIGHT/INTERNATIONAL INDICES/"
+fpath_1<-"Path of csv file containing international indices"
+fpath_2<-"Path of csv file containing international indices and their average weight"
 list_of_index<- read.csv( paste(fpath_1,"list.csv",sep = ""))
 
 number_of_obs=160
