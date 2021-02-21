@@ -1,7 +1,6 @@
 #rm(list=ls())
 
-#fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/CRISIS ANALYSIS/EMPIRICAL/INTERNATIONAL INDICES/Pre-Crisis/"
-fpath<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/CRISIS ANALYSIS/RANDOMIZED/INTERNATIONAL INDICES/Pre-Crisis/"
+fpath<-"path of excel file containing indices before 2008 crisis"
 list_of_index<- read.csv( paste(fpath,"list.csv",sep = ""))
 
 num_of_obs<-1
