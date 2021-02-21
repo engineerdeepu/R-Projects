@@ -1,5 +1,4 @@
-fpath_1<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/EXTERNAL VALIDATION/ASIAN INDICES/"
-fpath_2<-"G:/Study Materials/Semstr-4/BRP/Project/Refined Files/BRP files/AVERAGE WEIGHT/ASIAN INDICES/"
+// Fpath: path of the file
 list_of_index<- read.csv( paste(fpath_1,"list.csv",sep = ""))
 
 number_of_obs=1
